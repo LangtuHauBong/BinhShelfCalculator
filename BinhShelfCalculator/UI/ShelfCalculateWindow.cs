@@ -38,7 +38,7 @@ namespace BinhShelfCalculator.UI
 
             Title = "Binh Shelf Calculator - Calculate";
             Width = 980;
-            Height = 720;
+            Height = 760;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Background = Brushes.White;
 
@@ -97,24 +97,22 @@ namespace BinhShelfCalculator.UI
         {
             StackPanel panel = new StackPanel();
 
-            TextBlock selectedTitle = new TextBlock
+            panel.Children.Add(new TextBlock
             {
                 Text = "Đối tượng kệ đã chọn",
                 FontSize = 16,
                 FontWeight = FontWeights.Bold,
                 Foreground = BlueTheme.DarkBlue,
                 Margin = new Thickness(0, 0, 0, 8)
-            };
-            panel.Children.Add(selectedTitle);
+            });
 
-            TextBlock selectedInfo = new TextBlock
+            panel.Children.Add(new TextBlock
             {
                 Text = BuildSelectedInfoText(),
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 14),
                 Foreground = Brushes.Black
-            };
-            panel.Children.Add(selectedInfo);
+            });
 
             panel.Children.Add(BlueTheme.CreateLabel("Chọn cấu hình kệ"));
             _shelfProfileCombo = new ComboBox
@@ -131,7 +129,11 @@ namespace BinhShelfCalculator.UI
                 MinHeight = 32,
                 Margin = new Thickness(0, 0, 0, 10)
             };
-            _itemCombo.SelectionChanged += (s, e) => UpdateRecommendedClearHeightText();
+            _itemCombo.SelectionChanged += (s, e) =>
+            {
+                _lastResult = null;
+                UpdateRecommendedClearHeightText();
+            };
             panel.Children.Add(_itemCombo);
 
             _useRecommendedClearHeightCheck = new CheckBox
@@ -172,6 +174,10 @@ namespace BinhShelfCalculator.UI
             calculateButton.Click += (s, e) => Calculate();
             panel.Children.Add(calculateButton);
 
+            Button writeMarkButton = BlueTheme.CreatePrimaryButton("Ghi MARK vào kệ đã chọn");
+            writeMarkButton.Click += (s, e) => WriteMark();
+            panel.Children.Add(writeMarkButton);
+
             Button createTextButton = BlueTheme.CreateSecondaryButton("Tạo TextNote trên view hiện tại");
             createTextButton.Click += (s, e) => CreateTextNote();
             panel.Children.Add(createTextButton);
@@ -180,14 +186,13 @@ namespace BinhShelfCalculator.UI
             copyButton.Click += (s, e) => CopyResult();
             panel.Children.Add(copyButton);
 
-            TextBlock note = new TextBlock
+            panel.Children.Add(new TextBlock
             {
-                Text = "Luật cứng: add-in chỉ lấy kích thước kệ từ 3 tham số DÀI / RỘNG / CAO của đối tượng đang chọn. 'Tầng kệ' là lớp/khoang bên trong giá kệ, không phải Level Revit.",
+                Text = "Sau khi tính sức chứa, có thể ghi Mark cho chính kệ đang chọn theo vật dụng và sức chứa vừa tính. Ví dụ: Kệ đựng cốc: 200 cốc.",
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = Brushes.DimGray,
                 Margin = new Thickness(0, 16, 0, 0)
-            };
-            panel.Children.Add(note);
+            });
 
             return panel;
         }
@@ -222,7 +227,6 @@ namespace BinhShelfCalculator.UI
                 Text = "Bấm 'Tính sức chứa' để xem kết quả."
             };
             panel.Children.Add(_resultBox);
-
             return panel;
         }
 
@@ -261,6 +265,7 @@ namespace BinhShelfCalculator.UI
                 _manualClearHeightBox.Background = useRecommended ? Brushes.Gainsboro : Brushes.White;
             }
 
+            _lastResult = null;
             UpdateRecommendedClearHeightText();
         }
 
@@ -305,11 +310,43 @@ namespace BinhShelfCalculator.UI
                     useRecommended,
                     manualClearHeight);
 
-                _resultBox.Text = _lastResult.ToReportText();
+                string markText = ShelfMarkWriter.BuildMarkText(
+                    _lastResult.Item.Name,
+                    _lastResult.TotalQuantityAfterSafety);
+
+                _resultBox.Text = _lastResult.ToReportText()
+                    + Environment.NewLine + Environment.NewLine
+                    + "MARK đề xuất: " + markText;
             }
             catch (Exception ex)
             {
+                _lastResult = null;
                 MessageBox.Show(ex.Message, "Lỗi tính toán");
+            }
+        }
+
+        private void WriteMark()
+        {
+            try
+            {
+                Calculate();
+                if (_lastResult == null) return;
+
+                ShelfMarkWriter.WriteItemQuantity(
+                    _doc,
+                    _element,
+                    _lastResult.Item.Name,
+                    _lastResult.TotalQuantityAfterSafety);
+
+                string markText = ShelfMarkWriter.BuildMarkText(
+                    _lastResult.Item.Name,
+                    _lastResult.TotalQuantityAfterSafety);
+
+                MessageBox.Show("Đã ghi Mark: " + markText, "Calculate Shelf");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Không ghi được Mark");
             }
         }
 
