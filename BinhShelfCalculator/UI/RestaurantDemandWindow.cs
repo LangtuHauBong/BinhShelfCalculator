@@ -26,7 +26,6 @@ namespace BinhShelfCalculator.UI
         private TextBox _resultBox;
 
         private RestaurantDemandResult _lastDemand;
-        private int? _lastCupQuantity;
 
         public RestaurantDemandWindow(Document document, Element shelfElement, ShelfLibraryService service)
         {
@@ -101,8 +100,8 @@ namespace BinhShelfCalculator.UI
             calculateButton.Click += (s, e) => CalculateDemand();
             panel.Children.Add(calculateButton);
 
-            Button writeMarkButton = BlueTheme.CreatePrimaryButton("Ghi MARK: CỐC n");
-            writeMarkButton.Click += (s, e) => WriteCupMark();
+            Button writeMarkButton = BlueTheme.CreatePrimaryButton("Ghi MARK theo vật dụng đã chọn");
+            writeMarkButton.Click += (s, e) => WriteItemMark();
             panel.Children.Add(writeMarkButton);
 
             panel.Children.Add(CreateSectionTitle("Kết quả"));
@@ -125,7 +124,7 @@ namespace BinhShelfCalculator.UI
 
             TextBlock note = new TextBlock
             {
-                Text = "Nút ghi MARK luôn lấy vật dụng có tên chứa 'Cốc' trong Library và ghi đúng định dạng: CỐC n.",
+                Text = "MARK được tạo theo vật dụng đang chọn. Ví dụ: Kệ đựng cốc: 200 cốc hoặc Kệ đựng bát: 200 bát.",
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = Brushes.DimGray,
                 Margin = new Thickness(0, 12, 0, 0)
@@ -165,14 +164,7 @@ namespace BinhShelfCalculator.UI
         private void LoadItems()
         {
             _itemCombo.ItemsSource = _data.ItemBoxTypes.OrderBy(x => x.Name).ToList();
-
-            ItemBoxType cup = _data.ItemBoxTypes.FirstOrDefault(x =>
-            {
-                string name = (x.Name ?? string.Empty).ToLowerInvariant();
-                return name.Contains("cốc") || name.Contains("coc");
-            });
-
-            _itemCombo.SelectedItem = cup ?? _itemCombo.Items.Cast<object>().FirstOrDefault();
+            _itemCombo.SelectedItem = _itemCombo.Items.Cast<object>().FirstOrDefault();
         }
 
         private void LoadSelectedItem()
@@ -219,7 +211,10 @@ namespace BinhShelfCalculator.UI
 
                 item.QuantityPerGuest = quantityPerGuest;
                 _lastDemand = RestaurantDemandEngine.Calculate(tableCount, guestsPerTable, item);
-                _lastCupQuantity = RestaurantDemandEngine.CalculateCupQuantity(tableCount, guestsPerTable, _data.ItemBoxTypes);
+
+                string markText = ShelfMarkWriter.BuildMarkText(
+                    _lastDemand.Item.Name,
+                    _lastDemand.RequiredQuantity);
 
                 _resultBox.Text =
                     "Số bàn: " + _lastDemand.TableCount + Environment.NewLine +
@@ -228,27 +223,37 @@ namespace BinhShelfCalculator.UI
                     "Vật dụng: " + _lastDemand.Item.Name + Environment.NewLine +
                     "Số lượng / khách: " + _lastDemand.Item.QuantityPerGuest.ToString("0.###") + Environment.NewLine +
                     "Nhu cầu: " + _lastDemand.RequiredQuantity + Environment.NewLine +
-                    "MARK cốc: CỐC " + _lastCupQuantity.Value;
+                    "MARK: " + markText;
             }
             catch (Exception ex)
             {
+                _lastDemand = null;
                 MessageBox.Show(ex.Message, "Lỗi tính toán");
             }
         }
 
-        private void WriteCupMark()
+        private void WriteItemMark()
         {
             try
             {
                 CalculateDemand();
 
-                if (!_lastCupQuantity.HasValue)
+                if (_lastDemand == null)
                 {
                     return;
                 }
 
-                ShelfMarkWriter.WriteCupQuantity(_document, _shelfElement, _lastCupQuantity.Value);
-                MessageBox.Show("Đã ghi Mark: CỐC " + _lastCupQuantity.Value, "Restaurant Demand");
+                string markText = ShelfMarkWriter.BuildMarkText(
+                    _lastDemand.Item.Name,
+                    _lastDemand.RequiredQuantity);
+
+                ShelfMarkWriter.WriteItemQuantity(
+                    _document,
+                    _shelfElement,
+                    _lastDemand.Item.Name,
+                    _lastDemand.RequiredQuantity);
+
+                MessageBox.Show("Đã ghi Mark: " + markText, "Restaurant Demand");
             }
             catch (Exception ex)
             {
