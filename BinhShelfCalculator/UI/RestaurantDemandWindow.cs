@@ -1,8 +1,6 @@
-using Autodesk.Revit.DB;
 using BinhShelfCalculator.Engine;
 using BinhShelfCalculator.Memory;
 using BinhShelfCalculator.Models;
-using BinhShelfCalculator.RevitWriter;
 using BinhShelfCalculator.Utils;
 using System;
 using System.Linq;
@@ -14,8 +12,6 @@ namespace BinhShelfCalculator.UI
 {
     public class RestaurantDemandWindow : Window
     {
-        private readonly Document _document;
-        private readonly Element _shelfElement;
         private readonly ShelfLibraryService _service;
         private readonly LibraryData _data;
 
@@ -25,18 +21,14 @@ namespace BinhShelfCalculator.UI
         private TextBox _quantityPerGuestBox;
         private TextBox _resultBox;
 
-        private RestaurantDemandResult _lastDemand;
-
-        public RestaurantDemandWindow(Document document, Element shelfElement, ShelfLibraryService service)
+        public RestaurantDemandWindow(ShelfLibraryService service)
         {
-            _document = document ?? throw new ArgumentNullException(nameof(document));
-            _shelfElement = shelfElement ?? throw new ArgumentNullException(nameof(shelfElement));
             _service = service ?? throw new ArgumentNullException(nameof(service));
             _data = _service.Load();
 
             Title = "Binh Shelf Calculator - Restaurant Demand";
             Width = 760;
-            Height = 650;
+            Height = 610;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Background = Brushes.White;
             Content = BuildContent();
@@ -68,7 +60,6 @@ namespace BinhShelfCalculator.UI
             };
 
             panel.Children.Add(CreateSectionTitle("Quy mô phục vụ"));
-
             panel.Children.Add(BlueTheme.CreateLabel("Số bàn"));
             _tableCountBox = CreateTextBox("35");
             panel.Children.Add(_tableCountBox);
@@ -78,7 +69,6 @@ namespace BinhShelfCalculator.UI
             panel.Children.Add(_guestsPerTableBox);
 
             panel.Children.Add(CreateSectionTitle("Vật dụng"));
-
             panel.Children.Add(BlueTheme.CreateLabel("Chọn vật dụng"));
             _itemCombo = new ComboBox
             {
@@ -88,24 +78,17 @@ namespace BinhShelfCalculator.UI
             _itemCombo.SelectionChanged += (s, e) => LoadSelectedItem();
             panel.Children.Add(_itemCombo);
 
-            panel.Children.Add(BlueTheme.CreateLabel("Số lượng trên 1 khách"));
+            panel.Children.Add(BlueTheme.CreateLabel("Số lượng trên 1 khách (lấy từ Library)"));
             _quantityPerGuestBox = CreateTextBox("1");
+            _quantityPerGuestBox.IsReadOnly = true;
+            _quantityPerGuestBox.Background = Brushes.Gainsboro;
             panel.Children.Add(_quantityPerGuestBox);
-
-            Button saveItemButton = BlueTheme.CreateSecondaryButton("Lưu số lượng / khách vào Library");
-            saveItemButton.Click += (s, e) => SaveQuantityPerGuest();
-            panel.Children.Add(saveItemButton);
 
             Button calculateButton = BlueTheme.CreatePrimaryButton("Tính số lượng vật dụng");
             calculateButton.Click += (s, e) => CalculateDemand();
             panel.Children.Add(calculateButton);
 
-            Button writeMarkButton = BlueTheme.CreatePrimaryButton("Ghi MARK theo vật dụng đã chọn");
-            writeMarkButton.Click += (s, e) => WriteItemMark();
-            panel.Children.Add(writeMarkButton);
-
             panel.Children.Add(CreateSectionTitle("Kết quả"));
-
             _resultBox = new TextBox
             {
                 IsReadOnly = true,
@@ -114,7 +97,7 @@ namespace BinhShelfCalculator.UI
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 FontFamily = new FontFamily("Consolas"),
                 FontSize = 13,
-                Height = 160,
+                Height = 180,
                 Padding = new Thickness(10),
                 BorderBrush = BlueTheme.BorderBlue,
                 BorderThickness = new Thickness(1),
@@ -124,7 +107,7 @@ namespace BinhShelfCalculator.UI
 
             TextBlock note = new TextBlock
             {
-                Text = "MARK được tạo theo vật dụng đang chọn. Ví dụ: Kệ đựng cốc: 200 cốc hoặc Kệ đựng bát: 200 bát.",
+                Text = "Chức năng này chỉ tính nhu cầu nhà hàng và không yêu cầu chọn giá/kệ. Số lượng trên 1 khách được đọc trực tiếp từ Library.",
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = Brushes.DimGray,
                 Margin = new Thickness(0, 12, 0, 0)
@@ -172,32 +155,11 @@ namespace BinhShelfCalculator.UI
             ItemBoxType item = _itemCombo.SelectedItem as ItemBoxType;
             if (item == null)
             {
+                _quantityPerGuestBox.Text = string.Empty;
                 return;
             }
 
             _quantityPerGuestBox.Text = item.QuantityPerGuest.ToString("0.###");
-        }
-
-        private void SaveQuantityPerGuest()
-        {
-            try
-            {
-                ItemBoxType item = GetSelectedItem();
-                double quantityPerGuest = NumberParser.ToDouble(_quantityPerGuestBox.Text, "Số lượng trên 1 khách");
-
-                if (quantityPerGuest <= 0)
-                {
-                    throw new Exception("Số lượng trên 1 khách phải lớn hơn 0.");
-                }
-
-                item.QuantityPerGuest = quantityPerGuest;
-                _service.Save(_data);
-                MessageBox.Show("Đã lưu số lượng trên 1 khách vào Library.", "Restaurant Demand");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "Lỗi dữ liệu");
-            }
         }
 
         private void CalculateDemand()
@@ -207,57 +169,20 @@ namespace BinhShelfCalculator.UI
                 int tableCount = NumberParser.ToInt(_tableCountBox.Text, "Số bàn");
                 int guestsPerTable = NumberParser.ToInt(_guestsPerTableBox.Text, "Số khách / bàn");
                 ItemBoxType item = GetSelectedItem();
-                double quantityPerGuest = NumberParser.ToDouble(_quantityPerGuestBox.Text, "Số lượng trên 1 khách");
 
-                item.QuantityPerGuest = quantityPerGuest;
-                _lastDemand = RestaurantDemandEngine.Calculate(tableCount, guestsPerTable, item);
-
-                string markText = ShelfMarkWriter.BuildMarkText(
-                    _lastDemand.Item.Name,
-                    _lastDemand.RequiredQuantity);
+                RestaurantDemandResult result = RestaurantDemandEngine.Calculate(tableCount, guestsPerTable, item);
 
                 _resultBox.Text =
-                    "Số bàn: " + _lastDemand.TableCount + Environment.NewLine +
-                    "Khách / bàn: " + _lastDemand.GuestsPerTable + Environment.NewLine +
-                    "Tổng khách: " + _lastDemand.TotalGuests + Environment.NewLine +
-                    "Vật dụng: " + _lastDemand.Item.Name + Environment.NewLine +
-                    "Số lượng / khách: " + _lastDemand.Item.QuantityPerGuest.ToString("0.###") + Environment.NewLine +
-                    "Nhu cầu: " + _lastDemand.RequiredQuantity + Environment.NewLine +
-                    "MARK: " + markText;
+                    "Số bàn: " + result.TableCount + Environment.NewLine +
+                    "Khách / bàn: " + result.GuestsPerTable + Environment.NewLine +
+                    "Tổng khách: " + result.TotalGuests + Environment.NewLine +
+                    "Vật dụng: " + result.Item.Name + Environment.NewLine +
+                    "Số lượng / khách: " + result.Item.QuantityPerGuest.ToString("0.###") + Environment.NewLine +
+                    "Nhu cầu: " + result.RequiredQuantity;
             }
             catch (Exception ex)
             {
-                _lastDemand = null;
                 MessageBox.Show(ex.Message, "Lỗi tính toán");
-            }
-        }
-
-        private void WriteItemMark()
-        {
-            try
-            {
-                CalculateDemand();
-
-                if (_lastDemand == null)
-                {
-                    return;
-                }
-
-                string markText = ShelfMarkWriter.BuildMarkText(
-                    _lastDemand.Item.Name,
-                    _lastDemand.RequiredQuantity);
-
-                ShelfMarkWriter.WriteItemQuantity(
-                    _document,
-                    _shelfElement,
-                    _lastDemand.Item.Name,
-                    _lastDemand.RequiredQuantity);
-
-                MessageBox.Show("Đã ghi Mark: " + markText, "Restaurant Demand");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "Không ghi được Mark");
             }
         }
 
@@ -267,6 +192,11 @@ namespace BinhShelfCalculator.UI
             if (item == null)
             {
                 throw new Exception("Chưa chọn vật dụng.");
+            }
+
+            if (item.QuantityPerGuest <= 0)
+            {
+                throw new Exception("Vật dụng chưa có Số lượng trên 1 khách hợp lệ trong Library.");
             }
 
             return item;
