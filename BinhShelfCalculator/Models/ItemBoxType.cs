@@ -12,6 +12,7 @@ namespace BinhShelfCalculator.Models
         [DataMember] public double WidthMm { get; set; }
         [DataMember] public double HeightMm { get; set; }
         [DataMember] public int QuantityPerBox { get; set; }
+        [DataMember] public double QuantityPerGuest { get; set; }
         [DataMember] public string Note { get; set; }
 
         public ItemBoxType()
@@ -22,6 +23,7 @@ namespace BinhShelfCalculator.Models
             WidthMm = 100;
             HeightMm = 100;
             QuantityPerBox = 1;
+            QuantityPerGuest = 1.0;
             Note = "";
         }
 
