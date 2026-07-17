@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>Binh Shelf Calculator</Name>
+    <Assembly>D:\RevitAddin\BinhShelfCalculator_v1_0_0\BinhShelfCalculator\bin\x64\Debug\BinhShelfCalculator.dll</Assembly>
+    <AddInId>8E6C14B4-47E2-4D20-BBF5-BFA5E5D1A5C1</AddInId>
+    <FullClassName>BinhShelfCalculator.App</FullClassName>
+    <VendorId>BINH</VendorId>
+    <VendorDescription>Binh Shelf Capacity Calculator for Revit 2020</VendorDescription>
+  </AddIn>
+</RevitAddIns>
