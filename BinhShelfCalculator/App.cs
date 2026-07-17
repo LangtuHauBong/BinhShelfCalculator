@@ -53,9 +53,18 @@ namespace BinhShelfCalculator
                     "BinhShelfCalculator.Commands.CmdCalculateShelf");
                 calculateButtonData.ToolTip = "Chọn giá/kệ trong Revit, đọc DÀI/RỘNG/CAO và tính sức chứa vật dụng.";
 
+                PushButtonData demandButtonData = new PushButtonData(
+                    "BSC_RestaurantDemand",
+                    "Restaurant\nDemand",
+                    assemblyPath,
+                    "BinhShelfCalculator.Commands.CmdRestaurantDemand");
+                demandButtonData.ToolTip = "Tính nhu cầu vật dụng theo số bàn, số khách và ghi CỐC n vào Mark của kệ.";
+
                 panel.AddItem(libraryButtonData);
                 panel.AddSeparator();
                 panel.AddItem(calculateButtonData);
+                panel.AddSeparator();
+                panel.AddItem(demandButtonData);
 
                 return Result.Succeeded;
             }

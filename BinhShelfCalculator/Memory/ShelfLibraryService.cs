@@ -2,7 +2,6 @@ using BinhShelfCalculator.Models;
 using System;
 using System.IO;
 using System.Runtime.Serialization.Json;
-using System.Text;
 
 namespace BinhShelfCalculator.Memory
 {
@@ -50,10 +49,10 @@ namespace BinhShelfCalculator.Memory
                     if (data == null)
                     {
                         data = CreateDefaultLibrary();
-                        Save(data);
                     }
 
                     EnsureValidData(data);
+                    Save(data);
                     return data;
                 }
             }
@@ -107,6 +106,11 @@ namespace BinhShelfCalculator.Memory
                 {
                     item.Id = Guid.NewGuid().ToString();
                 }
+
+                if (item.QuantityPerGuest <= 0)
+                {
+                    item.QuantityPerGuest = GetDefaultQuantityPerGuest(item.Name);
+                }
             }
 
             if (data.ShelfProfiles.Count == 0)
@@ -123,10 +127,8 @@ namespace BinhShelfCalculator.Memory
         private LibraryData CreateDefaultLibrary()
         {
             LibraryData data = new LibraryData();
-
             data.ShelfProfiles.Add(CreateDefaultShelfProfile());
             AddDefaultItems(data);
-
             return data;
         }
 
@@ -146,16 +148,47 @@ namespace BinhShelfCalculator.Memory
 
         private void AddDefaultItems(LibraryData data)
         {
-            data.ItemBoxTypes.Add(new ItemBoxType { Name = "Bếp ga mini", LengthMm = 340, WidthMm = 280, HeightMm = 100, QuantityPerBox = 1, Note = "Mặc định" });
-            data.ItemBoxTypes.Add(new ItemBoxType { Name = "Bình ga mini", LengthMm = 70, WidthMm = 70, HeightMm = 200, QuantityPerBox = 1, Note = "Mặc định" });
-            data.ItemBoxTypes.Add(new ItemBoxType { Name = "Cốc uống nước", LengthMm = 80, WidthMm = 80, HeightMm = 100, QuantityPerBox = 1, Note = "Mặc định" });
-            data.ItemBoxTypes.Add(new ItemBoxType { Name = "Đĩa tròn", LengthMm = 220, WidthMm = 220, HeightMm = 30, QuantityPerBox = 1, Note = "Mặc định" });
-            data.ItemBoxTypes.Add(new ItemBoxType { Name = "Bát", LengthMm = 130, WidthMm = 130, HeightMm = 70, QuantityPerBox = 1, Note = "Mặc định" });
-            data.ItemBoxTypes.Add(new ItemBoxType { Name = "Đĩa bánh mì", LengthMm = 180, WidthMm = 180, HeightMm = 25, QuantityPerBox = 1, Note = "Mặc định" });
-            data.ItemBoxTypes.Add(new ItemBoxType { Name = "Vỉ nướng", LengthMm = 300, WidthMm = 300, HeightMm = 35, QuantityPerBox = 1, Note = "Mặc định" });
-            data.ItemBoxTypes.Add(new ItemBoxType { Name = "Khay chấm 3 ngăn", LengthMm = 220, WidthMm = 90, HeightMm = 30, QuantityPerBox = 1, Note = "Mặc định" });
-            data.ItemBoxTypes.Add(new ItemBoxType { Name = "Bát chấm nhỏ", LengthMm = 80, WidthMm = 80, HeightMm = 45, QuantityPerBox = 1, Note = "Mặc định" });
-            data.ItemBoxTypes.Add(new ItemBoxType { Name = "Âu để rau", LengthMm = 300, WidthMm = 220, HeightMm = 100, QuantityPerBox = 1, Note = "Mặc định" });
+            data.ItemBoxTypes.Add(CreateItem("Bếp ga mini", 340, 280, 100, 0.25));
+            data.ItemBoxTypes.Add(CreateItem("Bình ga mini", 70, 70, 200, 0.25));
+            data.ItemBoxTypes.Add(CreateItem("Cốc uống nước", 80, 80, 100, 1.0));
+            data.ItemBoxTypes.Add(CreateItem("Đĩa tròn", 220, 220, 30, 1.0));
+            data.ItemBoxTypes.Add(CreateItem("Bát", 130, 130, 70, 1.0));
+            data.ItemBoxTypes.Add(CreateItem("Đĩa bánh mì", 180, 180, 25, 1.0));
+            data.ItemBoxTypes.Add(CreateItem("Vỉ nướng", 300, 300, 35, 0.5));
+            data.ItemBoxTypes.Add(CreateItem("Khay chấm 3 ngăn", 220, 90, 30, 0.25));
+            data.ItemBoxTypes.Add(CreateItem("Bát chấm nhỏ", 80, 80, 45, 1.0));
+            data.ItemBoxTypes.Add(CreateItem("Âu để rau", 300, 220, 100, 0.25));
+        }
+
+        private ItemBoxType CreateItem(string name, double length, double width, double height, double quantityPerGuest)
+        {
+            return new ItemBoxType
+            {
+                Name = name,
+                LengthMm = length,
+                WidthMm = width,
+                HeightMm = height,
+                QuantityPerBox = 1,
+                QuantityPerGuest = quantityPerGuest,
+                Note = "Mặc định"
+            };
+        }
+
+        private double GetDefaultQuantityPerGuest(string itemName)
+        {
+            string name = (itemName ?? "").Trim().ToLowerInvariant();
+
+            if (name.Contains("bếp ga") || name.Contains("bình ga") || name.Contains("khay chấm") || name.Contains("âu"))
+            {
+                return 0.25;
+            }
+
+            if (name.Contains("vỉ nướng"))
+            {
+                return 0.5;
+            }
+
+            return 1.0;
         }
     }
 }
